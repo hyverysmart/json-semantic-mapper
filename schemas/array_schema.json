@@ -1,0 +1,27 @@
+{
+  "type": "object",
+  "properties": {
+    "students": {
+    "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id":{
+            "type": "integer",
+            "description": "学生编号"
+          },
+          "name": {
+            "type": "string",
+            "description": "学生姓名"
+          },
+          "score": {
+            "type": "number",
+            "description": "学生考试成绩"
+          }
+        },
+        "required": ["id","name","score"]
+      }
+    }
+  },
+  "required": ["students"]
+}

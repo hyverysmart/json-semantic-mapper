@@ -1,0 +1,23 @@
+[
+  {
+    "name": "studentId",
+    "path": "$.studentId",
+    "type": "integer",
+    "description": "学生唯一的编号",
+    "required": true
+  },
+  {
+    "name": "studentName",
+    "path": "$.studentName",
+    "type": "string",
+    "description": "学生姓名",
+    "required": true
+  },
+  {
+    "name": "score",
+    "path": "$.score",
+    "type": "number",
+    "description": "学生考试成绩",
+    "required": true
+  }
+]

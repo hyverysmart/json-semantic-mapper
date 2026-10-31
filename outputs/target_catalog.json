@@ -1,0 +1,23 @@
+[
+  {
+    "name": "id",
+    "path": "$.id",
+    "type": "integer",
+    "description": "学生唯一编码",
+    "required": true
+  },
+  {
+    "name": "name",
+    "path": "$.name",
+    "type": "string",
+    "description": "学生姓名",
+    "required": true
+  },
+  {
+    "name": "grade",
+    "path": "$.grade",
+    "type": "number",
+    "description": "学生考试成绩",
+    "required": true
+  }
+]

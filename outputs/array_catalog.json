@@ -1,0 +1,30 @@
+[
+  {
+    "name": "students",
+    "path": "$.students",
+    "type": "array",
+    "description": "无描述",
+    "required": true
+  },
+  {
+    "name": "id",
+    "path": "$.students[*].id",
+    "type": "integer",
+    "description": "学生编号",
+    "required": true
+  },
+  {
+    "name": "name",
+    "path": "$.students[*].name",
+    "type": "string",
+    "description": "学生姓名",
+    "required": true
+  },
+  {
+    "name": "score",
+    "path": "$.students[*].score",
+    "type": "number",
+    "description": "学生考试成绩",
+    "required": true
+  }
+]

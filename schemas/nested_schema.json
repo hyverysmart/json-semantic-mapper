@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "properties":
+{
+  "student": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "integer",
+        "description": "学生编号"
+      },
+      "name": {
+        "type": "string",
+        "description": "学生姓名"
+      }
+    },
+    "required": [
+      "id",
+      "name"
+    ]
+  }
+},
+  "required": ["student"]
+}

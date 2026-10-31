@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "integer",
+      "description": "学生唯一编码"
+    },
+    "name": {
+      "type": "string",
+      "description": "学生姓名"
+    },
+    "grade": {
+      "type": "number",
+      "description": "学生考试成绩"
+    }
+  },
+  "required": ["id","name","grade"]
+}
