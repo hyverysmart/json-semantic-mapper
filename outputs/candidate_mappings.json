@@ -1,0 +1,12 @@
+[
+  {
+    "source": "$.studentName",
+    "target": "$.name",
+    "reason": "字段描述相同"
+  },
+  {
+    "source": "$.score",
+    "target": "$.grade",
+    "reason": "字段描述相同"
+  }
+]

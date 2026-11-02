@@ -1,0 +1,21 @@
+{
+  "generation_method": "mock",
+  "approved": [
+    {
+      "source": "$.studentName",
+      "target": "$.name",
+      "reason": "字段描述相同"
+    },
+    {
+      "source": "$.score",
+      "target": "$.grade",
+      "reason": "字段描述相同"
+    },
+    {
+      "source": "$.studentId",
+      "target": "$.id",
+      "reason": "两个字段都表示学生的唯一标识"
+    }
+  ],
+  "rejected": []
+}

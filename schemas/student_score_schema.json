@@ -1,0 +1,11 @@
+
+{
+  "type": "object",
+  "properties": {
+    "score": {
+      "type": "number",
+      "description": "学生考试成绩"
+    }
+  },
+  "required": ["score"]
+}

@@ -1,0 +1,35 @@
+{
+  "version": "1.0",
+  "source_ids": [
+    "student_source"
+  ],
+  "schema_fingerprints": {
+    "student_source": "366f6a183e34e5d4e12825dffefd2f8b756dc04345d6c20c170ef8a275c18321",
+    "target": "0885f1d53705d342fe229e8de584c240656fe960031d437e0ee63df1b512dbfd"
+  },
+  "review_status": "approved",
+  "generation_method": "rule_and_mock",
+  "mappings": [
+    {
+      "source_id": "student_source",
+      "source_path": "$.studentName",
+      "target_path": "$.name",
+      "operation": "copy",
+      "array_scope": null
+    },
+    {
+      "source_id": "student_source",
+      "source_path": "$.score",
+      "target_path": "$.grade",
+      "operation": "copy",
+      "array_scope": null
+    },
+    {
+      "source_id": "student_source",
+      "source_path": "$.studentId",
+      "target_path": "$.id",
+      "operation": "copy",
+      "array_scope": null
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+[
+  {
+    "name": "id",
+    "path": "$.id",
+    "type": "integer",
+    "description": "学生唯一编码",
+    "required": true
+  }
+]
