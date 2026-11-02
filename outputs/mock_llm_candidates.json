@@ -1,5 +1,6 @@
 {
   "generation_method": "mock",
+  "review_status": "pending",
   "mappings": [
     {
       "source": "$.studentId",

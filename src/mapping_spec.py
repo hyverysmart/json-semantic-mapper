@@ -326,6 +326,217 @@ def main():
 
     run_review(args.provider)
 
+# 生成字段映射候选，不执行人工审核
+def propose_mappings(source_fields, target_fields, provider="deepseek"):
+    if provider not in ("deepseek", "rules"):
+        raise ValueError(f"不支持的候选生成方式：{provider}")
+
+    from .llm_mapper import (
+        build_prompt,
+        call_deepseek,
+        validate_llm_result
+    )
+
+    candidates = []
+    unresolved_targets = []
+
+    # 根据名称与描述生成规则候选
+    for target in target_fields:
+        possible_matches = []
+
+        for source in source_fields:
+            compatible = (
+                source["type"] == target["type"]
+                or (
+                    source["type"] == "integer"
+                    and target["type"] == "number"
+                )
+            )
+
+            if not compatible:
+                continue
+
+            source_name = source["path"].split(".")[-1]
+            target_name = target["path"].split(".")[-1]
+
+            if source_name == target_name:
+                possible_matches.append({
+                    "source": source["path"],
+                    "target": target["path"],
+                    "reason": "字段名称相同且类型兼容"
+                })
+
+            elif (
+                source.get("description")
+                and source.get("description") != "无描述"
+                and source.get("description") == target.get("description")
+            ):
+                possible_matches.append({
+                    "source": source["path"],
+                    "target": target["path"],
+                    "reason": "字段描述相同且类型兼容"
+                })
+
+        # 候选唯一时直接列为待审核规则
+        if len(possible_matches) == 1:
+            candidates.extend(possible_matches)
+        else:
+            unresolved_targets.append(target)
+
+    # 规则模式不调用 LLM
+    if provider == "rules":
+        return {
+            "generation_method": provider,
+            "review_status": "pending",
+            "mappings": candidates,
+            "unresolved": [
+                field["path"] for field in unresolved_targets
+            ]
+        }
+
+    # 对规则无法唯一确定的字段调用 DeepSeek
+    if unresolved_targets:
+        prompt = build_prompt(source_fields, unresolved_targets)
+        llm_result = call_deepseek(prompt)
+
+        validate_llm_result(
+            llm_result,
+            source_fields,
+            unresolved_targets
+        )
+
+        candidates.extend(llm_result["mappings"])
+        unresolved = llm_result["unresolved"]
+    else:
+        unresolved = []
+
+    return {
+        "generation_method": provider,
+        "review_status": "pending",
+        "mappings": candidates,
+        "unresolved": unresolved
+    }
+
+
+# 根据外部提交的人工审核结果生成 MappingSpec
+def approve_mappings(
+    candidates,
+    approved_pairs,
+    source_fields,
+    target_fields,
+    source_schema,
+    target_schema,
+    source_id="student_source"
+):
+    if not isinstance(candidates, dict):
+        raise ValueError("候选结果必须是字典")
+
+    if candidates.get("review_status") != "pending":
+        raise ValueError("候选结果状态必须是 pending")
+
+    if not isinstance(approved_pairs, list):
+        raise ValueError("approved_pairs 必须是列表")
+
+    if not isinstance(source_id, str) or not source_id:
+        raise ValueError("source_id 不能为空")
+
+    if source_id == "target":
+        raise ValueError("source_id 不能使用保留名称 target")
+
+    if not isinstance(source_schema, dict):
+        raise ValueError("source_schema 必须是字典")
+
+    if not isinstance(target_schema, dict):
+        raise ValueError("target_schema 必须是字典")
+
+    candidate_list = candidates.get("mappings")
+
+    if not isinstance(candidate_list, list):
+        raise ValueError("候选映射必须是列表")
+
+    # 建立允许批准的候选映射集合
+    allowed_pairs = set()
+
+    for mapping in candidate_list:
+        if not isinstance(mapping, dict):
+            raise ValueError("候选映射格式错误")
+
+        source = mapping.get("source")
+        target = mapping.get("target")
+
+        if not isinstance(source, str) or not isinstance(target, str):
+            raise ValueError("候选映射路径格式错误")
+
+        allowed_pairs.add((source, target))
+
+    approved = []
+    seen_pairs = set()
+
+    # 只接受候选列表中存在的人工批准映射
+    for pair in approved_pairs:
+        if not isinstance(pair, dict):
+            raise ValueError("批准项必须是字典")
+
+        source = pair.get("source")
+        target = pair.get("target")
+
+        if (source, target) not in allowed_pairs:
+            raise ValueError(
+                f"批准的映射不在候选列表中：{source} → {target}"
+            )
+
+        if (source, target) in seen_pairs:
+            raise ValueError(
+                f"重复批准映射：{source} → {target}"
+            )
+
+        seen_pairs.add((source, target))
+
+        approved.append({
+            "source": source,
+            "target": target
+        })
+
+    # 检查源字段、目标字段及类型
+    validate_approved_mappings(
+        approved,
+        source_fields,
+        target_fields
+    )
+
+    # 检查所有必填目标字段是否已覆盖
+    validate_required_targets(
+        approved,
+        target_fields
+    )
+
+    # 转换为声明式 MappingSpec 规则
+    mapping_rules = []
+
+    for mapping in approved:
+        mapping_rules.append({
+            "source_id": source_id,
+            "source_path": mapping["source"],
+            "target_path": mapping["target"],
+            "operation": "copy",
+            "array_scope": None
+        })
+
+    mapping_spec = {
+        "version": "1.0",
+        "source_ids": [source_id],
+        "schema_fingerprints": {
+            source_id: schema_fingerprint(source_schema),
+            "target": schema_fingerprint(target_schema)
+        },
+        "review_status": "approved",
+        "generation_method": (
+            "rule_and_" + candidates.get("generation_method", "unknown")
+        ),
+        "mappings": mapping_rules
+    }
+
+    return mapping_spec
 
 if __name__ == "__main__":
     main()

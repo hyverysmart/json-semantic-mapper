@@ -1,0 +1,12 @@
+{
+  "generation_method": "deepseek",
+  "review_status": "pending",
+  "mappings": [
+    {
+      "source": "$.studentId",
+      "target": "$.id",
+      "reason": "两者均为 integer 类型，描述分别表示学生唯一的编号和学生唯一编码，语义相同"
+    }
+  ],
+  "unresolved": []
+}

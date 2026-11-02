@@ -8,7 +8,7 @@
     "target": "0885f1d53705d342fe229e8de584c240656fe960031d437e0ee63df1b512dbfd"
   },
   "review_status": "approved",
-  "generation_method": "rule_and_mock",
+  "generation_method": "rule_and_deepseek",
   "mappings": [
     {
       "source_id": "student_source",

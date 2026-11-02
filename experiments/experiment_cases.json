@@ -1,0 +1,77 @@
+[
+  {
+    "case_id": "case_001",
+    "source_fields": [
+      {
+        "path": "$.studentId",
+        "type": "integer",
+        "description": "学生唯一编号"
+      }
+    ],
+    "target_fields": [
+      {
+        "path": "$.id",
+        "type": "integer",
+        "description": "学生唯一编码"
+      }
+    ],
+    "expected_mappings": [
+      {
+        "source": "$.studentId",
+        "target": "$.id"
+      }
+    ]
+  },
+  {
+    "case_id": "case_002",
+    "source_fields": [
+      {
+        "path": "$.studentName",
+        "type": "string",
+        "description": "学生姓名"
+      }
+    ],
+    "target_fields": [
+      {
+        "path": "$.name",
+        "type": "string",
+        "description": "学生姓名"
+      }
+    ],
+    "expected_mappings": [
+      {
+        "source": "$.studentName",
+        "target": "$.name"
+      }
+    ]
+  },
+  {
+    "case_id": "case_003",
+    "source_fields": [
+      {
+        "path": "$.courseId",
+        "type": "integer",
+        "description": "课程唯一编号"
+      },
+      {
+        "path": "$.studentId",
+        "type": "integer",
+        "description": "学生唯一编号"
+      }
+    ],
+    "target_fields": [
+      {
+        "path": "$.id",
+        "type": "integer",
+        "description": "学生唯一编号"
+      }
+    ],
+    "expected_mappings": [
+      {
+        "source": "$.studentId",
+        "target": "$.id"
+      }
+    ]
+  }
+]
+
