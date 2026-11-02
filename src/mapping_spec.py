@@ -1,93 +1,22 @@
-import json
-import hashlib
 
+import argparse
+import hashlib
+import json
+
+
+# 读取 JSON 文件
 def load_json(file_path):
-    with open(file_path,"r",encoding='utf-8') as file:
+    with open(file_path, "r", encoding="utf-8") as file:
         return json.load(file)
 
-rule_candidates=load_json(
-    "outputs/candidate_mappings.json"
-)
-mock_result=load_json(
-    "outputs/mock_llm_candidates.json"
-)
 
-mock_candidates=mock_result["mappings"]
-all_candidates=rule_candidates+mock_candidates
-print("待审核的候选映射：")
-
-for index,mapping in enumerate(all_candidates,start=1):
-    print(
-        index,
-        mapping["source"],
-        "→",
-        mapping["target"],
-        "原因:",
-        mapping["reason"]
-    )
-
-approved_mappings=[]
-rejected_mappings=[]
-approved_targets=set()
-
-for mapping in all_candidates:
-    print("\n待匹配")
-    print(mapping["source"],"→",mapping["target"])
-    print("匹配原因：",mapping["reason"])
-
-    decision=input("是否批准?(y/n):").strip().lower()
+# 保存 JSON 文件
+def save_json(file_path, data):
+    with open(file_path, "w", encoding="utf-8") as file:
+        json.dump(data, file, ensure_ascii=False, indent=2)
 
 
-    if decision == "y":
-        target_path = mapping["target"]
-        if target_path in approved_targets:
-            print(f"冲突：目标字段 {target_path} 已经存在批准的映射")
-            rejected_mappings.append(mapping)
-            print("本条因冲突被拒绝")
-        else:
-            approved_mappings.append(mapping)
-            approved_targets.add(target_path)
-            print("已批准")
-    elif decision =="n":
-        rejected_mappings.append(mapping)
-        print("已拒绝")
-    else:
-        print("输入无效，本条暂不批准")
-print("\n审核结果：")
-print("批准数量：",len(approved_mappings))
-print("拒绝数量:",len(rejected_mappings))
-
-
-review_result = {
-    "generation_method": "mock",
-    "approved": approved_mappings,
-    "rejected": rejected_mappings
-}
-
-with open("outputs/mapping_review.json", "w", encoding="utf-8") as file:
-    json.dump(review_result, file, ensure_ascii=False, indent=2)
-print("人工审核结果已保存")
-
-review_data = load_json("outputs/mapping_review.json")
-approved = review_data["approved"]
-print("\n准备生成 MappingSpec，批准映射数量：", len(approved))
-
-source_catalog = load_json("outputs/source_catalog.json")
-target_catalog = load_json("outputs/target_catalog.json")
-
-mapping_rules = []
-for mapping in approved:
-    rule = {
-        "source_id": "student_source",
-        "source_path": mapping["source"],
-        "target_path": mapping["target"],
-        "operation": "copy",
-        "array_scope": None
-    }
-
-    mapping_rules.append(rule)
-
-
+# 计算 Schema 指纹
 def schema_fingerprint(schema):
     schema_text = json.dumps(
         schema,
@@ -100,33 +29,9 @@ def schema_fingerprint(schema):
         schema_text.encode("utf-8")
     ).hexdigest()
 
-source_schema = load_json("schemas/source_schema.json")
-target_schema = load_json("schemas/target_schema.json")
 
-source_hash = schema_fingerprint(source_schema)
-target_hash = schema_fingerprint(target_schema)
-
-
-mapping_spec = {
-    "version": "1.0",
-    "source_ids": ["student_source"],
-    "schema_fingerprints": {
-        "student_source": source_hash,
-        "target": target_hash
-    },
-    "review_status": "approved",
-    "generation_method": "rule_and_mock",
-    "mappings": mapping_rules
-}
-
-with open("outputs/mapping_spec.json", "w", encoding="utf-8") as file:
-    json.dump(mapping_spec, file, ensure_ascii=False, indent=2)
-
-print("\nMappingSpec 已生成：outputs/mapping_spec.json")
-print("规则数量：", len(mapping_rules))
-
+# 检查 MappingSpec 中保存的 Schema 指纹
 def verify_schema_fingerprints(mapping_spec, source_schema, target_schema):
-
     saved_hashes = mapping_spec["schema_fingerprints"]
 
     current_source_hash = schema_fingerprint(source_schema)
@@ -140,25 +45,16 @@ def verify_schema_fingerprints(mapping_spec, source_schema, target_schema):
 
     return True
 
-saved_spec = load_json("outputs/mapping_spec.json")
 
-verify_schema_fingerprints(
-    saved_spec,
-    source_schema,
-    target_schema
-)
-
-print("MappingSpec 的 Schema 指纹验证通过")
-
+# 校验批准的映射规则
 def validate_approved_mappings(approved, source_catalog, target_catalog):
-    source_dict = {}
-    target_dict = {}
+    source_dict = {
+        field["path"]: field for field in source_catalog
+    }
 
-    for field in source_catalog:
-        source_dict[field["path"]] = field
-
-    for field in target_catalog:
-        target_dict[field["path"]] = field
+    target_dict = {
+        field["path"]: field for field in target_catalog
+    }
 
     used_targets = set()
 
@@ -175,7 +71,12 @@ def validate_approved_mappings(approved, source_catalog, target_catalog):
         source_type = source_dict[source_path]["type"]
         target_type = target_dict[target_path]["type"]
 
-        if source_type != target_type:
+        compatible = (
+            source_type == target_type
+            or (source_type == "integer" and target_type == "number")
+        )
+
+        if not compatible:
             raise ValueError(
                 f"类型不兼容：{source_path} → {target_path}"
             )
@@ -189,23 +90,242 @@ def validate_approved_mappings(approved, source_catalog, target_catalog):
 
     return True
 
-validate_approved_mappings(
-    approved,
-    source_catalog,
-    target_catalog
-)
 
-print("全部批准映射校验通过")
+# 检查必填目标字段是否都有映射
+def validate_required_targets(approved, target_catalog):
+    mapped_targets = {
+        mapping["target"] for mapping in approved
+    }
 
-mapped_targets = set()
+    for field in target_catalog:
+        if field["required"] and field["path"] not in mapped_targets:
+            raise ValueError(
+                f"必填目标字段缺少映射：{field['path']}"
+            )
 
-for mapping in approved:
-    mapped_targets.add(mapping["target"])
+    return True
 
-for field in target_catalog:
-    if field["required"] and field["path"] not in mapped_targets:
+
+# 根据选择的模型来源读取候选映射
+def load_candidates(provider):
+    rule_candidates = load_json(
+        "outputs/candidate_mappings.json"
+    )
+
+    candidate_files = {
+        "mock": "outputs/mock_llm_candidates.json",
+        "deepseek": "outputs/deepseek_llm_candidates.json"
+    }
+
+    llm_result = load_json(candidate_files[provider])
+
+    if llm_result.get("generation_method") != provider:
         raise ValueError(
-            f"必填目标字段缺少映射：{field['path']}"
+            f"候选文件的生成方式与所选 provider 不一致：{provider}"
         )
 
-print("必填目标字段覆盖检查通过")
+    llm_candidates = llm_result["mappings"]
+
+    if not isinstance(rule_candidates, list):
+        raise ValueError("规则候选映射必须是数组")
+
+    if not isinstance(llm_candidates, list):
+        raise ValueError("LLM 候选映射必须是数组")
+
+    return rule_candidates + llm_candidates
+
+
+# 人工审核每条候选映射
+def review_candidates(all_candidates):
+    approved_mappings = []
+    rejected_mappings = []
+    approved_targets = set()
+
+    print("\n待审核的候选映射：")
+
+    for index, mapping in enumerate(all_candidates, start=1):
+        print(
+            index,
+            mapping["source"],
+            "→",
+            mapping["target"],
+            "原因：",
+            mapping["reason"]
+        )
+
+    for mapping in all_candidates:
+        print("\n待审核映射：")
+        print(mapping["source"], "→", mapping["target"])
+        print("匹配原因：", mapping["reason"])
+
+        while True:
+            decision = input("是否批准？(y/n)：").strip().lower()
+
+            if decision in ("y", "n"):
+                break
+
+            print("请输入 y 或 n")
+
+        if decision == "y":
+            target_path = mapping["target"]
+
+            if target_path in approved_targets:
+                print(f"冲突：目标字段 {target_path} 已存在批准的映射")
+                rejected_mappings.append(mapping)
+                print("本条因冲突被拒绝")
+            else:
+                approved_mappings.append(mapping)
+                approved_targets.add(target_path)
+                print("已批准")
+        else:
+            rejected_mappings.append(mapping)
+            print("已拒绝")
+
+    return approved_mappings, rejected_mappings
+
+
+# 将人工批准的候选映射转换成声明式规则
+def build_mapping_rules(approved):
+    mapping_rules = []
+
+    for mapping in approved:
+        rule = {
+            "source_id": "student_source",
+            "source_path": mapping["source"],
+            "target_path": mapping["target"],
+            "operation": "copy",
+            "array_scope": None
+        }
+
+        mapping_rules.append(rule)
+
+    return mapping_rules
+
+
+# 生成正式 MappingSpec
+def build_mapping_spec(mapping_rules, source_schema, target_schema, provider):
+    return {
+        "version": "1.0",
+        "source_ids": ["student_source"],
+        "schema_fingerprints": {
+            "student_source": schema_fingerprint(source_schema),
+            "target": schema_fingerprint(target_schema)
+        },
+        "review_status": "approved",
+        "generation_method": f"rule_and_{provider}",
+        "mappings": mapping_rules
+    }
+
+
+# 执行映射审核和规则生成
+def run_review(provider):
+    source_catalog = load_json(
+        "outputs/source_catalog.json"
+    )
+
+    target_catalog = load_json(
+        "outputs/target_catalog.json"
+    )
+
+    source_schema = load_json(
+        "schemas/source_schema.json"
+    )
+
+    target_schema = load_json(
+        "schemas/target_schema.json"
+    )
+
+    all_candidates = load_candidates(provider)
+
+    # 在人工审核之前检查所有候选规则
+    for mapping in all_candidates:
+        if not isinstance(mapping, dict):
+            raise ValueError("候选映射格式错误")
+
+        for key in ("source", "target", "reason"):
+            if not isinstance(mapping.get(key), str) or not mapping[key].strip():
+                raise ValueError(f"候选映射缺少有效字段：{key}")
+
+    approved, rejected = review_candidates(all_candidates)
+
+    # 保存人工审核记录
+    review_result = {
+        "generation_method": f"rule_and_{provider}",
+        "approved": approved,
+        "rejected": rejected
+    }
+
+    save_json(
+        "outputs/mapping_review.json",
+        review_result
+    )
+
+    print("\n审核结果：")
+    print("批准数量：", len(approved))
+    print("拒绝数量：", len(rejected))
+    print("人工审核结果已保存")
+
+    # 先校验规则，再生成正式 MappingSpec
+    validate_approved_mappings(
+        approved,
+        source_catalog,
+        target_catalog
+    )
+
+    print("全部批准映射校验通过")
+
+    validate_required_targets(
+        approved,
+        target_catalog
+    )
+
+    print("必填目标字段覆盖检查通过")
+
+    mapping_rules = build_mapping_rules(approved)
+
+    mapping_spec = build_mapping_spec(
+        mapping_rules,
+        source_schema,
+        target_schema,
+        provider
+    )
+
+    verify_schema_fingerprints(
+        mapping_spec,
+        source_schema,
+        target_schema
+    )
+
+    print("MappingSpec 的 Schema 指纹验证通过")
+
+    # 全部检查通过后，才保存正式规则
+    save_json(
+        "outputs/mapping_spec.json",
+        mapping_spec
+    )
+
+    print("\nMappingSpec 已生成：outputs/mapping_spec.json")
+    print("规则数量：", len(mapping_rules))
+    print("生成方式：", mapping_spec["generation_method"])
+
+
+# 命令行参数
+def main():
+    parser = argparse.ArgumentParser(
+        description="JSON Semantic Mapper - MappingSpec 人工审核"
+    )
+
+    parser.add_argument(
+        "--provider",
+        choices=["mock", "deepseek"],
+        default="mock",
+        help="选择 Mock 或 DeepSeek 候选映射来源"
+    )
+
+    args = parser.parse_args()
+
+    run_review(args.provider)
+
+
+if __name__ == "__main__":
+    main()
