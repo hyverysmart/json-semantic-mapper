@@ -1,9 +1,14 @@
-
 # JSON Semantic Mapper
 
-一个基于 JSON Schema、LLM 辅助语义映射和声明式规则的 JSON 数据转换工具。
+一个支持 Python 可编程数据处理节点的 JSON 数据转换工具。
 
-本项目旨在解决不同 JSON 接口之间的字段名称、数据类型和数据结构不一致的问题，并提供可供其他 Python 项目调用的转换接口。
+本项目在原有 JSON Schema 解析、字段映射和数据转换功能的基础上，
+增加了 Python 代码处理节点。
+
+用户可以通过图形化代码编辑器输入 JSON 数据、编写 Python 转换逻辑，
+并运行代码，获得所需的 JSON 输出结果。
+
+项目同时保留原有的字段映射、Schema 校验和多源数据组装功能。
 
 ## 项目功能
 
@@ -21,22 +26,23 @@
 
 ## 核心设计
 
-本项目将字段映射规则的生成和实际数据转换分开处理。
+项目采用模块化设计，支持两种数据处理模式。
 
-整体流程：
+### 独立 Python 代码节点
 
-1. 解析源 JSON Schema 和目标 JSON Schema
-2. 使用规则生成候选字段映射
-3. 使用 LLM 补充语义映射候选
-4. 对候选映射进行程序校验
-5. 人工确认映射规则
-6. 生成 MappingSpec
-7. 根据 MappingSpec 执行 JSON 数据转换
-8. 校验转换结果
+JSON 输入 → Python 代码处理 → JSON 输出
 
-LLM 只参与映射规则生成阶段。
+用户可以直接编写 Python 代码，实现自定义数据转换，
+不依赖大语言模型。
 
-实际业务数据转换时，不需要为每条数据重复调用 LLM，而是执行已经审核确认的 MappingSpec。
+### JSON 映射与 Python 代码结合
+
+JSON 输入 → 字段映射 → Python 代码处理 → 输出校验
+
+系统先执行 MappingSpec 中的字段映射规则，
+再将映射结果传入 Python 代码节点进行处理。
+
+目前实现的是固定顺序的两节点工作流。
 
 ## 环境要求
 
@@ -120,6 +126,20 @@ python src/mapping_spec.py --provider mock
 MappingSpec 记录字段来源、目标路径、规则和 Schema 指纹等信息。
 
 ## 命令行使用方法
+### 启动 Python 代码编辑器
+
+```bash
+python -m src.code_editor
+```
+
+启动后，用户可以：
+
+- 输入 JSON 数据
+- 编写 Python 转换代码
+- 选择是否先执行字段映射
+- 点击运行或使用 Ctrl + Enter
+- 查看转换结果和运行日志
+- 保存及打开 Python 代码
 
 ### 单源 JSON 转换
 
@@ -302,14 +322,95 @@ json-semantic-mapper/
 
 ## 当前限制
 
-- 当前仅支持项目已实现的 JSON Schema 类型与结构校验子集
-- 复杂数组、嵌套结构和多源组装仍需结合具体业务场景验证
-- LLM 映射需要人工确认，暂不提供完整的非交互式审核 API
-- Schema 更新后，需要重新确认 MappingSpec 与 Schema 指纹的一致性
-- 当前主要完成本地 Python 调用，尚未提供 HTTP 服务接口
+- 当前工作流采用固定的两节点顺序，尚不支持自由插入和编排节点。
+- 完整工作流使用预设的 MappingSpec 和 JSON Schema。
+- Python 代码执行使用 subprocess 和 exec，不是安全沙箱。
+- 当前仅适合执行本地可信代码，不应直接开放给不可信用户。
+- 代码编辑器目前是基于 Tkinter 的本地图形界面。
+- DeepSeek 语义映射属于原有可选功能，Python 代码处理节点无需调用 LLM。
 
 ## 使用说明
 
 本项目适用于需要进行 JSON 字段语义映射、数据转换与多源组装的研究原型及 Python 集成场景。
 
 建议在接入实际业务之前，先使用自身 Schema 和测试数据完成验证。
+
+
+## Python 代码处理节点
+
+本项目在原有 JSON 字段映射功能的基础上，增加了 Python 代码处理节点，允许用户通过编程实现自定义数据转换。
+
+### 主要功能
+
+- 在图形界面中输入 JSON 数据
+- 编写和执行 Python 转换代码
+- 支持独立代码执行和固定的两节点工作流
+- 显示 JSON 转换结果和 print() 运行日志
+- 支持代码保存、打开、行号和基础语法高亮
+- 支持 Ctrl + Enter 快捷键运行
+
+### 启动代码编辑器
+
+在项目根目录执行：
+
+```bash
+python -m src.code_editor
+```
+
+### 使用示例：度转度分秒
+
+输入 JSON：
+
+```json
+{
+  "angle": 12.5
+}
+```
+
+Python 转换代码：
+
+```python
+angle = input_data["angle"]
+
+degree = int(angle)
+minute = int((angle - degree) * 60)
+second = round(((angle - degree) * 60 - minute) * 60, 2)
+
+output = {
+    "degree": degree,
+    "minute": minute,
+    "second": second
+}
+```
+
+执行结果：
+
+```json
+{
+  "degree": 12,
+  "minute": 30,
+  "second": 0.0
+}
+```
+
+### 两种运行模式
+
+**独立代码节点模式：**
+
+JSON 输入 → Python 代码处理 → JSON 输出
+
+**完整工作流模式：**
+
+JSON 输入 → JSON 字段映射 → Python 代码处理 → JSON 输出
+
+### 自动化测试
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+### 当前限制
+
+- 工作流目前采用固定的两节点顺序，暂不支持任意位置插入节点
+- 完整工作流目前使用预设的 MappingSpec 和 Schema
+- Python 执行器仅适合运行本地可信代码，尚不具备运行不可信代码的安全沙箱能力

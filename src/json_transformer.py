@@ -2,6 +2,10 @@ import json
 import hashlib
 import re
 
+try:
+    from .code_executor import execute_code
+except ImportError:
+    from code_executor import execute_code
 # 读取与保存 JSON 文件
 
 def load_json(file_path):
@@ -246,8 +250,11 @@ def validate_rules(spec, source_schema, target_schema):
         if rule.get("source_id") != "student_source":
             raise ValueError("规则使用了未知数据源")
 
-        if rule.get("operation") != "copy":
-            raise ValueError("目前仅支持 copy 操作")
+        # 检查映射规则的操作类型
+        operation = rule.get("operation")
+
+        if operation not in ("copy", "code"):
+            raise ValueError(f"不支持的操作类型：{operation}")
 
         source_path = rule["source_path"]
         target_path = rule["target_path"]
@@ -255,10 +262,22 @@ def validate_rules(spec, source_schema, target_schema):
         source_type = schema_type_at(source_schema, source_path)
         target_type = schema_type_at(target_schema, target_path)
 
-        if not types_compatible(source_type, target_type):
-            raise ValueError(
-                f"字段类型不兼容：{source_path} → {target_path}"
-            )
+        # 普通复制操作需要检查字段类型
+        if operation == "copy":
+            if not types_compatible(source_type, target_type):
+                raise ValueError(
+                    f"字段类型不兼容：{source_path} → {target_path}"
+                )
+
+        # 代码节点允许通过编程改变数据类型
+        elif operation == "code":
+            code = rule.get("code")
+
+            if not isinstance(code, str) or not code.strip():
+                raise ValueError("code 节点必须提供有效的 Python 代码")
+
+            if "[*]" in source_path or "[*]" in target_path:
+                raise ValueError("当前 code 节点暂不支持数组通配符")
 
         if source_path.count("[*]") != target_path.count("[*]"):
             raise ValueError("源和目标的数组通配符数量不一致")
@@ -351,6 +370,11 @@ def transform_json(source_data, mapping_spec, source_schema, target_schema):
         # 处理普通字段及嵌套对象
         else:
             value = get_value(source_data, source_path)
+
+            # 如果是代码节点，执行用户编写的转换代码
+            if mapping.get("operation") == "code":
+                value = execute_code(value, mapping["code"])
+
             set_value(target_data, target_path, value)
 
     # 检查转换后的 JSON 是否符合目标 Schema

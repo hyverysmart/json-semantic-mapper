@@ -9,7 +9,7 @@ from .multi_source_assembler import (
     validate_mapping_spec,
     validate_schema_fingerprints
 )
-
+from .code_executor import execute_code
 
 # 检查 MappingSpec 是否经过人工审核
 def check_review_status(mapping_spec):
@@ -132,5 +132,17 @@ def transform_multi(
         result,
         target_schema
     )
+
+    return result
+
+# 执行 Python 数据处理节点
+def run_code_node(input_data, code, target_schema, return_logs=False):
+    result, logs = execute_code(input_data, code, return_logs=True)
+
+    # 校验转换结果
+    validate_result(result, target_schema)
+
+    if return_logs:
+        return result, logs
 
     return result
