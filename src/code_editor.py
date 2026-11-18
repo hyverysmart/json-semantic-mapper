@@ -258,10 +258,13 @@ def switch_example():
             "1.0",
             '{"studentId": 1001, "studentName": "Tom", "score": 95.5}'
         )
-        code_text.insert(
-            "1.0",
-            'output = dict(input_data)\noutput["grade"] = round(input_data["grade"])'
-        )
+        # 根据节点顺序选择示例代码
+        if order_var.get() == "Python → 映射":
+            code = 'output = dict(input_data)\noutput["score"] = round(input_data["score"])'
+        else:
+            code = 'output = dict(input_data)\noutput["grade"] = round(input_data["grade"])'
+
+        code_text.insert("1.0", code)
     else:
         input_text.insert("1.0", '{"angle": 12.5}')
         # 设置度转度分秒的示例代码
@@ -308,6 +311,27 @@ order_select = ttk.Combobox(
 )
 order_select.pack(side="left")
 
+# 切换顺序时，只自动修改默认示例代码
+def on_order_changed(event):
+    mapping_code = 'output = dict(input_data)\noutput["grade"] = round(input_data["grade"])'
+    python_code = 'output = dict(input_data)\noutput["score"] = round(input_data["score"])'
+
+    current_code = code_text.get("1.0", "end-1c").strip()
+
+    # 只有默认示例才自动切换
+    if current_code in (mapping_code, python_code):
+        new_code = (
+            python_code
+            if order_var.get() == "Python → 映射"
+            else mapping_code
+        )
+
+        code_text.delete("1.0", tk.END)
+        code_text.insert("1.0", new_code)
+
+
+# 监听节点顺序变化
+order_select.bind("<<ComboboxSelected>>", on_order_changed)
 # 加载默认示例
 switch_example()
 
