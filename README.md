@@ -414,3 +414,10 @@ python -m unittest discover -s tests -v
 - 工作流目前采用固定的两节点顺序，暂不支持任意位置插入节点
 - 完整工作流目前使用预设的 MappingSpec 和 Schema
 - Python 执行器仅适合运行本地可信代码，尚不具备运行不可信代码的安全沙箱能力
+
+### 代码编辑器运行演示
+
+下图展示用户输入 JSON 数据、编写 Python 转换代码，
+并运行代码获得转换结果的完整过程。
+
+![Python 代码处理节点演示](docs/images/code_editor_demo.png)
