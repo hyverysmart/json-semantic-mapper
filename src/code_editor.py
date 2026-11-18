@@ -2,10 +2,12 @@ import io   #读取代码字符串
 import keyword    #判断某个单词是不是 Python 关键字
 import tokenize   #分析 Python 代码中的单词、符号等
 import tkinter as tk
+from tkinter import ttk
 import json
 from .code_executor import execute_code
 from .workflow_runner import run_workflow
-from tkinter import filedialog
+from tkinter import filedialog,messagebox   #filedialog 打开文件选择窗口，用于保存和读取 Python 文件
+                                            #messagebox 显示提示窗口，例如保存失败、打开失败等错误信息
 
 # 创建代码编辑器窗口
 root = tk.Tk()
@@ -156,6 +158,18 @@ def run_code():
             mapping_spec = load_json("outputs/mapping_spec.json")
             source_schema = load_json("schemas/source_schema.json")
             target_schema = load_json("schemas/target_schema.json")
+            workflow_spec = load_json("examples/workflow_spec.json")
+            # 根据下拉框选择设置节点执行顺序
+            if order_var.get() == "Python → 映射":
+                workflow_spec["steps"] = [
+                    {"id": "python_1", "type": "code"},
+                    {"id": "mapping_1", "type": "mapping"}
+                ]
+            else:
+                workflow_spec["steps"] = [
+                    {"id": "mapping_1", "type": "mapping"},
+                    {"id": "python_1", "type": "code"}
+                ]
 
             # 执行完整工作流，并获取运行日志
             result, logs = run_workflow(
@@ -164,7 +178,8 @@ def run_code():
                 source_schema,
                 target_schema,
                 code,
-                return_logs=True
+                return_logs=True,
+                workflow_spec=workflow_spec
             )
 
             # 在界面中显示运行日志
@@ -259,15 +274,41 @@ def switch_example():
             'output = {"degree": degree, "minute": minute, "second": second}'
         )
 
-# 创建工作流模式选择框
-workflow_check = tk.Checkbutton(
-    root,
-    text="先执行 JSON 字段映射",
-    variable=workflow_enabled,
-    command=switch_example
-)
+# 创建工作流控制区域
+mode_frame = tk.Frame(root, bg="#F4F6FA")
+mode_frame.pack(fill="x", padx=20, pady=5)
 
-workflow_check.pack(anchor="w", padx=20, pady=5)
+# 创建工作流复选框
+workflow_check = tk.Checkbutton(
+    mode_frame,
+    text="执行 JSON 工作流",
+    variable=workflow_enabled,
+    command=switch_example,
+    bg="#F4F6FA"
+)
+workflow_check.pack(side="left")
+
+# 创建节点顺序标题
+order_label = tk.Label(
+    mode_frame,
+    text="节点顺序：",
+    bg="#F4F6FA"
+)
+order_label.pack(side="left", padx=(20, 5))
+
+# 创建节点顺序下拉框
+order_var = tk.StringVar(value="映射 → Python")
+
+order_select = ttk.Combobox(
+    mode_frame,
+    textvariable=order_var,
+    values=["映射 → Python", "Python → 映射"],
+    state="readonly",
+    width=18
+)
+order_select.pack(side="left")
+
+# 加载默认示例
 switch_example()
 
 # 创建运行按钮

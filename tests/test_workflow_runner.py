@@ -91,6 +91,29 @@ print("处理完成")
         self.assertIn("开始处理学生数据", logs)
         self.assertIn("处理完成", logs)
 
+    # 测试先执行 Python，再执行 JSON 字段映射
+    def test_python_before_mapping(self):
+        workflow_spec = {
+            "steps": [
+                {"id": "python_1", "type": "code"},
+                {"id": "mapping_1", "type": "mapping"}
+            ]
+        }
+
+        code = 'output = dict(input_data)\noutput["score"] = round(input_data["score"])'
+
+        result = run_workflow(
+            self.source_data,
+            self.mapping_spec,
+            self.source_schema,
+            self.target_schema,
+            code,
+            workflow_spec=workflow_spec
+        )
+
+        self.assertEqual(result["id"], 1001)
+        self.assertEqual(result["name"], "Tom")
+        self.assertEqual(result["grade"], 96)
 
 if __name__ == "__main__":
     unittest.main()

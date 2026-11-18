@@ -1,0 +1,13 @@
+{
+  "version": "1.0",
+  "steps": [
+    {
+      "id": "python_1",
+      "type": "code"
+    },
+    {
+      "id": "mapping_1",
+      "type": "mapping"
+    }
+  ]
+}
